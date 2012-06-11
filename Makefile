@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -lpthread -lzmq
 
-all: threadpool.o test easyzmq.o client server
+all: threadpool.o test easyzmq.o slave
 
 
 threadpool.o: threadpool.c 
@@ -13,10 +13,10 @@ test: threadpool.o easyzmq.o test.c
 easyzmq.o: easyzmq.c
 	$(CC) -c $^ $(CFLAGS)
 
-server: easyzmq.o master.c
-	$(CC) -o $@ $^ $(CFLAGS)
+#server: easyzmq.o master.c
+#	$(CC) -o $@ $^ $(CFLAGS)
 	
-client: easyzmq.o slave.c
+slave: easyzmq.o slave.c
 	$(CC) -o $@ $^ $(CFLAGS)
 	
 fec: fec.c
@@ -24,6 +24,9 @@ fec: fec.c
 
 easyfec: easyfec.c
 	$(CC) -c $^ -stdd=c99
+	
+common: common.c
+	$(CC) -c $^
 
 clean:
-	rm *.o test server client *~ -rf
+	rm *.o test server slave common *~ -rf

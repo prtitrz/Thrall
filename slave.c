@@ -1,5 +1,23 @@
 #include <stdio.h>
+#include <pthread.h>
 #include "easyzmq.h"
+
+static void *worker_routine(void *context)
+{
+	void *receiver = zmq_socket(context, ZMQ_REP);
+	zmq_connect(receiver, "inproc://workers");
+
+	while (1){
+		char *string = s_recv (receiver);
+		printf("Received request: [%s]\n", string);
+		//Send reply back to client
+		s_send(receiver, string);
+		free(string);
+	}
+
+	zmq_close(receiver);
+	return NULL;
+}
 
 int main(int argc, const char *argv[])
 {
@@ -7,32 +25,42 @@ int main(int argc, const char *argv[])
 	char tcp[14] = "tcp://*:";
 	int update_nbr=0;
 
-	//  TODO:check argv
+	//TODO:check argv
 	strncat(tcp, argv[1], 5);
 
-	//  Socket to receive request
-	void *service = zmq_socket (context, ZMQ_REP);
-	zmq_bind (service, tcp);
+	//Socket to receive request
+	void *service = zmq_socket(context, ZMQ_ROUTER);
+	zmq_bind(service, tcp);
 
-	printf ("Waiting for request %s\n", argv[1]);
+	//Socket to talk to workers
+	void *workers = zmq_socket (context, ZMQ_DEALER);
+	zmq_bind(workers, "inproc://workers");
+
+	printf("Waiting for request %s\n", argv[1]);
+	printf("Create 5 worker thread\n");
+	int thread_nbr;
+	for (thread_nbr = 0; thread_nbr < 5; thread_nbr++) {
+		pthread_t worker;
+		pthread_create(&worker, NULL, worker_routine, context);
+	}
+	//Connect work threads to client threads via a queue
+	zmq_device (ZMQ_QUEUE, service, workers);
+	/*
 	while (1) {
-		char *string = s_recv (service);
-		s_send (service, string);
-		if (strcmp (string, "END") == 0) {
-			free (string);
+		char *string = s_recv(service);
+		s_send(service, string);
+		if (strcmp(string, "END") == 0) {
+			free(string);
 			break;
 		}
-		free (string);
+		free(string);
 		update_nbr++;
 	}
-	//  Now broadcast exactly 1M updates followed by END
-	printf ("Received %d updates\n", update_nbr);
-//	for (update_nbr = 0; update_nbr < 1000000; update_nbr++)
-//		s_send (publisher, "Rhubarb");
+	printf("Received %d updates\n", update_nbr);
+	*/
 
-//	s_send (publisher, "END");
-
-	zmq_close (service);
-	zmq_term (context);
+	zmq_close(service);
+	zmq_close(workers);
+	zmq_term(context);
 	return 0;
 }
