@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -lpthread -lzmq
+CFLAGS = -Wall -lpthread -lzmq -lm
 
 all: threadpool.o test easyzmq.o slave
 
@@ -26,7 +26,10 @@ easyfec: easyfec.c
 	$(CC) -c $^ -stdd=c99
 	
 common: common.c
-	$(CC) -c $^
+	$(CC) -o $@ $^
+
+thrall: threadpool.o thrall.c
+	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
-	rm *.o test server slave common *~ -rf
+	rm *.o test server slave common thrall *~ -rf
