@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "easyzmq.h"
+#include "common.h"
+#include "debug.h"
 
 static void *worker_routine(void *context)
 {
