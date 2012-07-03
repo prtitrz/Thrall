@@ -1,5 +1,5 @@
 /*
- * For some reason, please don't set THREAD maxxer than 312.
+ * For some reason, please don't set THREAD maxxer than 256.
  */
 #define THREAD 128
 #define QUEUE 256
@@ -10,96 +10,90 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <math.h>
 #include "debug.h"
 #include "threadpool.h"
-#define MAXREC 1000
-
-struct record {
-	int dev_num;
-	long offset;
-	long length;
-	char op;
-	struct timeval time;
-}records[MAXREC];
+#include "common.h"
+#include "easyzmq.h"
 
 struct timeval begin_time;
 long int late = 0;
-long int done = -1;
+long int done = 0;
 pthread_mutex_t lock;
-pthread_mutex_t lock_thread[THREAD];
 long int temp[THREAD];
-
-int init_rec_array(struct record *records)
-{
-	FILE *fp;
-	int i;
-	double time;
-	char tmp[20];
-
-	fp = fopen("./tmpfile", "r+");
-	if (fp == NULL) {
-		debug_puts("RECORD FILE OPEN ERROR");
-		return 1;
-	}
-
-	for (i = 0; i < MAXREC; i++) {
-		fscanf(fp, "%d,%ld,%ld,%c,%lf", &(records[i]).dev_num, &records[i].offset, \
-				&records[i].length, &records[i].op, &time);
-		sprintf(tmp, "%lf", time);
-		sscanf(tmp, "%ld.%ld", &records[i].time.tv_sec, \
-				&records[i].time.tv_usec);
-	}
-	
-	fclose(fp);
-	return 0;
-}
+struct setting setting;
+struct record records[MAXREC];
+void *context;
 
 void trace_replay(void *arg)
 {
+	struct req_data req_data;
 	struct timeval end_time, result_time, test_time;
 	/*long int i = *(long int *)arg;*/
 	long int i;
-	i = *(int *)arg;
+	char *ip;
+	i = *(long int *)arg;
+	*(long int *)arg += THREAD;
+/*
 	int mod;
-	mod = i % THREAD;
-
+*	mod = (long int *)arg - temp; 
+*	debug_print("%ld", temp[mod]);
+*	temp[mod] = temp[mod] + THREAD;
+*/
 	gettimeofday(&end_time, NULL);
 	timersub(&end_time, &begin_time, &result_time);
 	timersub(&records[i].time, &result_time, &test_time);
-	if (test_time.tv_sec < 0) {
-		pthread_mutex_lock(&lock);
-		late = late + i;
-		debug_print("%ld:%ld.%ld\n%ld.%ld, TIME LATE", i, records[i].time.tv_sec, records[i].time.tv_usec, result_time.tv_sec, result_time.tv_usec);
-		pthread_mutex_unlock(&lock);
-		temp[mod] = temp[mod] + THREAD;
-		return;
-	}
-	if (test_time.tv_sec != 0) {
-		debug_print("%ld, TIME_ERROR", i);
-	}
-	if (test_time.tv_usec >= 0) {
-		usleep(test_time.tv_usec);
-		/*
-		debug_print("%ld, %ld", i, test_time.tv_usec);
-		*/
-		temp[mod] = temp[mod] + THREAD;
+	do {
+		if (test_time.tv_sec < 0) {
+			pthread_mutex_lock(&lock);
+			late = late + i;
+			debug_print("%ld:%ld.%ld\t%ld.%ld, TIME LATE", i, records[i].time.tv_sec, records[i].time.tv_usec, result_time.tv_sec, result_time.tv_usec);
+			pthread_mutex_unlock(&lock);
+			break;
+		}
+		if (test_time.tv_sec != 0) {
+			debug_print("%ld, TIME_ERROR", i);
+			break;
+		}
+		if (test_time.tv_usec >= 0) {
+			usleep(test_time.tv_usec);
+			/*
+			debug_print("%ld, %ld", i, test_time.tv_usec);
+			pthread_mutex_lock(&lock);
+			done++;
+			pthread_mutex_unlock(&lock);
+			*/
+		}
+	} while(0);
+	/*
+	 * TODO: do something
+	 */
+	req_data.offset = records[i].offset;
+	req_data.length = records[i].length;
+	req_data.op = records[i].op;
+	ip = setting.nodes[records[i].dev_num].ip;
+	if (records[i].dev_num == 1) {
+		debug_print("%ld", i);
+		req_send(context, &req_data, ip);
 	}
 }
 
 int main(int argc, const char *argv[])
 {
 	long int i, ret=0;
-	struct timeval end_time, result_time;
 	threadpool_t *pool;
-
 	
+	/*
+	 * init temp array for record trace num
+	 */
 	for (i = 0; i < THREAD; i++) {
 		temp[i] = i;
-		pthread_mutex_init(&(lock_thread[i]), NULL);
 	}
 
+	/*
+	 * read the record file
+	 */
 	init_rec_array(records);
+
 	/*
 	 * init_rec_array test
 	 */
@@ -118,8 +112,19 @@ int main(int argc, const char *argv[])
 		return -1;
 	}
 
+	ret = init_conf(&setting);
+
+	if(ret) {
+		return -1;
+	}
+
+	context = zmq_init(1);
+
 	gettimeofday(&begin_time, NULL);
 
+	/*
+	 * add trace play to the threadpool and begin the trace play
+	 */
 	for (i = 0; i < MAXREC; i++) {
 		/*ret = threadpool_add(pool, &trace_replay, (void *)&temp[i], 0);
 		 */
@@ -129,14 +134,12 @@ int main(int argc, const char *argv[])
 			break;
 		}
 	}
-
-	
-	gettimeofday(&end_time, NULL);
-	timersub(&end_time, &begin_time, &result_time);
 	
 	sleep(1);
 	threadpool_destroy(pool, 0);
-	debug_print("%ld", late);
+	free(setting.nodes);
+	zmq_term (context);
+	debug_print("%ld, %ld", late, done);
 	
 	return 0;
 }
