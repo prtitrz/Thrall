@@ -1,3 +1,6 @@
+/*
+ * For some reason, please don't set THREAD maxxer than 312.
+ */
 #define THREAD 128
 #define QUEUE 256
 
@@ -10,7 +13,7 @@
 #include <math.h>
 #include "debug.h"
 #include "threadpool.h"
-#define MAXREC 10
+#define MAXREC 1000
 
 struct record {
 	int dev_num;
@@ -21,8 +24,11 @@ struct record {
 }records[MAXREC];
 
 struct timeval begin_time;
-int late = 0;
+long int late = 0;
+long int done = -1;
 pthread_mutex_t lock;
+pthread_mutex_t lock_thread[THREAD];
+long int temp[THREAD];
 
 int init_rec_array(struct record *records)
 {
@@ -48,49 +54,61 @@ int init_rec_array(struct record *records)
 	fclose(fp);
 	return 0;
 }
-/*
+
 void trace_replay(void *arg)
 {
-	struct timeval end_time, result_time;
-	double test;
-	int i = *(int *)arg;
+	struct timeval end_time, result_time, test_time;
+	/*long int i = *(long int *)arg;*/
+	long int i;
+	i = *(int *)arg;
+	int mod;
+	mod = i % THREAD;
 
 	gettimeofday(&end_time, NULL);
 	timersub(&end_time, &begin_time, &result_time);
-	test = records[i].time - (result_time.tv_sec + );
-	if (test > 1 || test < -1) {
-		debug_print("%d, TIME_ERROR", i);
-	}
-	test = result_time.tv_sec -  + result_time.tv_usec * 0.000001 - records[i].time;
-	if (test > 0) {
-		usleep(test);
-	}
-	else {
+	timersub(&records[i].time, &result_time, &test_time);
+	if (test_time.tv_sec < 0) {
 		pthread_mutex_lock(&lock);
 		late = late + i;
+		debug_print("%ld:%ld.%ld\n%ld.%ld, TIME LATE", i, records[i].time.tv_sec, records[i].time.tv_usec, result_time.tv_sec, result_time.tv_usec);
 		pthread_mutex_unlock(&lock);
+		temp[mod] = temp[mod] + THREAD;
+		return;
+	}
+	if (test_time.tv_sec != 0) {
+		debug_print("%ld, TIME_ERROR", i);
+	}
+	if (test_time.tv_usec >= 0) {
+		usleep(test_time.tv_usec);
+		/*
+		debug_print("%ld, %ld", i, test_time.tv_usec);
+		*/
+		temp[mod] = temp[mod] + THREAD;
 	}
 }
-*/
+
 int main(int argc, const char *argv[])
 {
-	int i, ret=0;
+	long int i, ret=0;
 	struct timeval end_time, result_time;
-	double test;
 	threadpool_t *pool;
-	
-	init_rec_array(records);
 
+	
+	for (i = 0; i < THREAD; i++) {
+		temp[i] = i;
+		pthread_mutex_init(&(lock_thread[i]), NULL);
+	}
+
+	init_rec_array(records);
 	/*
 	 * init_rec_array test
 	 */
-	
+	/*	
 	for (i = 0; i < MAXREC; i++) {
 		printf("%d,%ld,%ld,%c,%ld,%ld\n", records[i].dev_num, records[i].offset, \
 				records[i].length, records[i].op, records[i].time.tv_sec, records[i].time.tv_usec);
 	}
-
-
+	*/	
 
 	pthread_mutex_init(&lock, NULL);
 
@@ -101,22 +119,24 @@ int main(int argc, const char *argv[])
 	}
 
 	gettimeofday(&begin_time, NULL);
-	/*
+
 	for (i = 0; i < MAXREC; i++) {
-		ret = threadpool_add(pool, &trace_replay, (void *)&i, 0);
+		/*ret = threadpool_add(pool, &trace_replay, (void *)&temp[i], 0);
+		 */
+		ret = threadpool_add(pool, &trace_replay, (void *)&temp[i % THREAD], 0);
 		if (ret) {
 			debug_puts("TASK ADD ERROR");
 			break;
 		}
 	}
-	*/
-	/*
+
+	
 	gettimeofday(&end_time, NULL);
 	timersub(&end_time, &begin_time, &result_time);
-	*/
+	
 	sleep(1);
 	threadpool_destroy(pool, 0);
-	debug_print("%d", late);
+	debug_print("%ld", late);
 	
 	return 0;
 }
