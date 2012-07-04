@@ -6,15 +6,15 @@
 
 static void *worker_routine(void *context)
 {
+	struct req_data req_data;
 	void *receiver = zmq_socket(context, ZMQ_REP);
 	zmq_connect(receiver, "inproc://workers");
 
 	while (1){
-		char *string = s_recv (receiver);
-		printf("Received request: [%s]\n", string);
+		m_recv(receiver, &req_data);
+		debug_print("offset:%ld, length:%ld, %c", req_data.offset, req_data.length, req_data.op);
 		//Send reply back to client
-		s_send(receiver, string);
-		free(string);
+		s_send(receiver, "HELLO");
 	}
 
 	zmq_close(receiver);

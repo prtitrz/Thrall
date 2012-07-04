@@ -67,13 +67,15 @@ void trace_replay(void *arg)
 	/*
 	 * TODO: do something
 	 */
+	if (records[i].dev_num == 1) {
 	req_data.offset = records[i].offset;
 	req_data.length = records[i].length;
 	req_data.op = records[i].op;
 	ip = setting.nodes[records[i].dev_num].ip;
-	if (records[i].dev_num == 1) {
+		/*
 		debug_print("%ld", i);
-		req_send(context, &req_data, ip);
+		*/
+	req_send(context, &req_data, ip);
 	}
 }
 
