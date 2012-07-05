@@ -66,8 +66,8 @@ void trace_replay(void *arg)
 	} while(0);
 	/*
 	 * TODO: do something
-	 */
 	if (records[i].dev_num == 1) {
+	 */
 	req_data.offset = records[i].offset;
 	req_data.length = records[i].length;
 	req_data.op = records[i].op;
@@ -76,13 +76,16 @@ void trace_replay(void *arg)
 		debug_print("%ld", i);
 		*/
 	req_send(context, &req_data, ip);
-	}
+	gettimeofday(&end_time, NULL);
+	timersub(&end_time, &begin_time, &result_time);
+	timersub(&result_time, &records[i].time, &records[i].res_time);
 }
 
 int main(int argc, const char *argv[])
 {
 	long int i, ret=0;
 	threadpool_t *pool;
+	struct timeval total_time;
 	
 	/*
 	 * init temp array for record trace num
@@ -141,7 +144,15 @@ int main(int argc, const char *argv[])
 	threadpool_destroy(pool, 0);
 	free(setting.nodes);
 	zmq_term (context);
-	debug_print("%ld, %ld", late, done);
+	debug_print("%ld", late);
+
+	total_time.tv_sec = total_time.tv_usec = 0;
+
+	debug_puts("Trace play over, now calculate mean response time");
+	for (i = 0; i < MAXREC; i++) {
+		timeradd(&total_time, &records[i].res_time, &total_time);
+	}
+	debug_print("Play %ld traces in %ld.%lds", MAXREC, total_time.tv_sec, total_time.tv_usec);
 	
 	return 0;
 }

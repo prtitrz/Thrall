@@ -26,6 +26,7 @@ struct record {
 	long length;
 	char op;
 	struct timeval time;
+	struct timeval res_time;
 };
 
 int init_conf(struct setting *);

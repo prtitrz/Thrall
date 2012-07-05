@@ -4,7 +4,7 @@ import os
 def main():
     with open("/home/rz/Trace/WebSearch2.spc") as f, open("tmpfile", "r+") as g:
         for line in f:
-            num, offsize, length, op, sec = line.split(',');
+            num, offsize, length, op, sec = line.split(',')
             n = int(num)
             if n > 2: continue
             if n == 2: n = 6
@@ -20,6 +20,14 @@ def main():
             offsize = str(o)
             deal = (",").join([num, offsize, length, op, sec])
             g.write(deal)
+
+def ignore():
+    with open("home/rz/tmpfile") as f, open("raid_5", "r+") as g:
+        for line in f:
+            num, offsize, length, op, sec = line.split(',')
+            n = int(num)
+            for i in range()
+
 
 if __name__ == '__main__':
     main()
