@@ -89,20 +89,26 @@ int main(int argc, const char *argv[])
 	strncat(tcp, argv[1], 5);
 
 	//Socket to receive request
+/*
 	void *service = zmq_socket(context, ZMQ_ROUTER);
 	zmq_bind(service, tcp);
-
 	//Socket to talk to workers
 	void *workers = zmq_socket (context, ZMQ_DEALER);
 	zmq_bind(workers, "inproc://workers");
 
 	pthread_mutex_init(&lock, NULL);
+	*/
+
+	void *service = zmq_socket(context, ZMQ_REP);
+	zmq_bind(service, tcp);
+
 	fd = open("/dev/sdb", O_RDONLY);
 	if (fd == -1) {
 		debug_puts("FILE can't open");
 		return 1;
 	}
 
+	/*
 	printf("Waiting for request %s\n", argv[1]);
 	printf("Create 5 worker thread\n");
 	int thread_nbr;
@@ -112,7 +118,7 @@ int main(int argc, const char *argv[])
 	}
 	//Connect work threads to client threads via a queue
 	zmq_device (ZMQ_QUEUE, service, workers);
-	/*
+	*
 	while (1) {
 		char *string = s_recv(service);
 		s_send(service, string);
@@ -125,11 +131,46 @@ int main(int argc, const char *argv[])
 	}
 	printf("Received %d updates\n", update_nbr);
 	*/
+	struct req_data req_data;
+	char *buf;
+
+	s_catch_signals();
+
+	while (1){
+		m_recv(service, &req_data);
+		//Send reply back to client
+		switch(req_data.length) {
+			case ZERO:
+				buf = (char *)malloc((ZERO + 1) * sizeof(char));
+				break;
+			case ONE:
+				buf = (char *)malloc((ONE + 1) * sizeof(char));
+				break;
+			case TWO:
+				buf = (char *)malloc((TWO + 1) * sizeof(char));
+				break;
+			case THREE:
+				buf = (char *)malloc((THREE + 1) * sizeof(char));
+				break;
+			default:
+				debug_puts("LENGTH ERROR");
+		}
+		lseek(fd, req_data.offset, SEEK_SET);
+		read(fd, buf, req_data.length);
+		s_send(service, buf);
+		free(buf);
+
+		req_num++;
+
+		if (s_interrupted) {
+			debug_puts("CTRL+C....");
+			break;
+		}
+	}
 
 	debug_print("%d", req_num);
 
 	zmq_close(service);
-	zmq_close(workers);
 	zmq_term(context);
 	return 0;
 }

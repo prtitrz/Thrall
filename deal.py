@@ -2,7 +2,7 @@
 import os
 
 def main():
-    with open("/home/rz/Trace/WebSearch2.spc") as f, open("tmpfile", "r+") as g:
+    with open("/home/rz/Trace/WebSearch2.spc") as f, open("raid_4", "r+") as g:
         for line in f:
             num, offsize, length, op, sec = line.split(',')
             n = int(num)
@@ -22,12 +22,7 @@ def main():
             g.write(deal)
 
 def ignore():
-    with open("home/rz/tmpfile") as f, open("raid_5", "r+") as g:
-        for line in f:
-            num, offsize, length, op, sec = line.split(',')
-            n = int(num)
-            for i in range()
-
+    pass
 
 if __name__ == '__main__':
     main()

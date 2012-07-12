@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -lpthread -lzmq
 
-all: threadpool.o test easyzmq.o slave
+all: thrall
 
 
 threadpool.o: threadpool.c 
@@ -19,6 +19,9 @@ master.o: master.c
 slave: easyzmq.o slave.c
 	$(CC) -o $@ $^ $(CFLAGS)
 	
+slave_st: easyzmq.o slave_st.c
+	$(CC) -o $@ $^ $(CFLAGS)
+	
 fec: fec.c
 	$(CC) -c $^ -std=c99
 
@@ -32,4 +35,4 @@ thrall: common.o threadpool.o easyzmq.o master.o thrall.c
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
-	rm *.o test server slave common thrall *~ -rf
+	rm *.o test server slave common thrall slave_st *~ -rf

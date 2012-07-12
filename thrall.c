@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "debug.h"
@@ -45,14 +46,14 @@ void trace_replay(void *arg)
 	do {
 		if (test_time.tv_sec < 0) {
 			pthread_mutex_lock(&lock);
-			late = late + i;
-			debug_print("%ld:%ld.%ld\t%ld.%ld, TIME LATE", i, records[i].time.tv_sec, records[i].time.tv_usec, result_time.tv_sec, result_time.tv_usec);
+			late++;
 			pthread_mutex_unlock(&lock);
+			records[i].time.tv_sec = result_time.tv_sec;
+			records[i].time.tv_usec = result_time.tv_usec;
 			break;
 		}
 		if (test_time.tv_sec != 0) {
-			debug_print("%ld, TIME_ERROR", i);
-			break;
+			sleep(test_time.tv_sec);
 		}
 		if (test_time.tv_usec >= 0) {
 			usleep(test_time.tv_usec);
@@ -125,6 +126,10 @@ int main(int argc, const char *argv[])
 
 	context = zmq_init(1);
 
+	debug_puts("Init over... Start trace play. Begin time is Beijing time:");
+	time_t p_time = time(NULL);
+	debug_puts(ctime(&p_time));
+
 	gettimeofday(&begin_time, NULL);
 
 	/*
@@ -144,15 +149,14 @@ int main(int argc, const char *argv[])
 	threadpool_destroy(pool, 0);
 	free(setting.nodes);
 	zmq_term (context);
-	debug_print("%ld", late);
 
 	total_time.tv_sec = total_time.tv_usec = 0;
 
-	debug_puts("Trace play over, now calculate mean response time");
+	debug_print("Trace play over, %ld traces are late. now calculate total response time.", late);
 	for (i = 0; i < MAXREC; i++) {
 		timeradd(&total_time, &records[i].res_time, &total_time);
 	}
-	debug_print("Play %ld traces in %ld.%lds", MAXREC, total_time.tv_sec, total_time.tv_usec);
+	debug_print("Play %d traces in %ld.%lds", MAXREC, total_time.tv_sec, total_time.tv_usec);
 	
 	return 0;
 }

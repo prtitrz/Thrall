@@ -67,6 +67,10 @@ int init_rec_array(struct record *records)
 		sprintf(tmp, "%lf", time);
 		sscanf(tmp, "%ld.%ld", &records[i].time.tv_sec, \
 				&records[i].time.tv_usec);
+		/*
+		 * According the doc, the meaning of offset is LBA. So..
+		 */
+		records[i].offset = records[i].offset * 512;
 	}
 	
 	fclose(fp);
